@@ -169,7 +169,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                     buf = rawbuf[:-ord(rawbuf[-1])]
                     
                     # Check root hash
-                    step = len(buf) / Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
+                    step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
                     assert step * Threshold - len(buf) < 256  # assumption
                     buf_ = buf.ljust(step * Threshold - 1, '\xFF') + chr(step * Threshold - len(buf))
                     fragList = [buf_[i*step : (i+1)*step] for i in range(Threshold)]
@@ -182,9 +182,9 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
     greenletPacker(Greenlet(Listener), 'multiSigBr.Listener', (pid, N, t, msg, broadcast, receive, outputs)).start()
     buf = msg  # We already assumed the proposals are byte strings
 
-    step = len(buf) / Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
+    step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
     assert step * Threshold - len(buf) < 256  # assumption
-    buf = buf.ljust(step * Threshold - 1, '\xFF') + chr(step * Threshold - len(buf))
+    buf = buf.ljust(step * Threshold - 1, b'\xff') + bytes([step * Threshold - len(buf)])
     fragList = [buf[i*step : (i+1)*step] for i in range(Threshold)]
     encodedFragList = zfecEncoder.encode(fragList)
     mt = merkleTree(encodedFragList, coolSHA256Hash)
@@ -192,7 +192,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
     for i in range(N):
         mb = getMerkleBranch(i, mt)  # notice that index starts from 1 and pid starts from 0
         newBundle = (encodedFragList[i], rootHash, mb)
-        send(i, ('i', newBundle, keys[pid].sign(sha1hash(''.join([newBundle[0], newBundle[1], ''.join(newBundle[2])])))))
+        send(i, ('i', newBundle, keys[pid].sign(sha1hash(b''.join([newBundle[0], newBundle[1], b''.join(newBundle[2])])))))
 
 @greenletFunction
 def consensusBroadcast(pid, N, t, msg, broadcast, receive, outputs, send, method=multiSigBr):
@@ -335,13 +335,13 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
                 continue
 
             oldest_B = transactionCache[:B]
-            selected_B = random.sample(oldest_B, min(B/N, len(oldest_B)))
-            print("[%d] proposing %d transactions" % (pid, min(B/N, len(oldest_B))))
+            selected_B = random.sample(oldest_B, min(int(B/N), len(oldest_B)))
+            print("[%d] proposing %d transactions" % (pid, min(int(B/N), len(oldest_B))))
             aesKey = random._urandom(32)  #
             label = "1"
-            encrypted_B = encrypt(aesKey, ''.join(selected_B))
+            encrypted_B = encrypt(aesKey, b''.join(selected_B))
             encryptedAESKey = encPK.encrypt(aesKey,label)
-            proposal = serializeEnc(encryptedAESKey) + encrypted_B
+            proposal = serializeEnc(encryptedAESKey).encode("ISO-8859-1") + encrypted_B
             mylog("timestampIB (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
 
             tb1 = time.time() # beginning of the protocol

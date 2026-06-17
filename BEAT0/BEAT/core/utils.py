@@ -127,11 +127,11 @@ def encodeTransaction(tr, randomGenerator=None, length=TR_SIZE):
     targetInd = nameList.index(tr.target)
     if randomGenerator:
         return struct.pack(
-        '<BBH', sourceInd, targetInd, tr.amount
-    ) + getSomeRandomBytes(TR_SIZE - 5, randomGenerator)  + '\x90'
+        b'<BBH', sourceInd, targetInd, tr.amount
+    ) + getSomeRandomBytes(TR_SIZE - 5, randomGenerator)  + b'\x90'
     return struct.pack(
-        '<BBH', sourceInd, targetInd, tr.amount
-    ) + os.urandom(TR_SIZE - 5) + '\x90'
+        b'<BBH', sourceInd, targetInd, tr.amount
+    ) + os.urandom(TR_SIZE - 5) + b'\x90'
 
 
 # assumptions:
@@ -211,7 +211,8 @@ def serializeEnc(C): # Now C has 6 components instead of 3
     assert len(serialize1(C[3])) == EC_SERIALIZED_2
     assert len(serialize1(C[4])) == EC_SERIALIZED_2
     assert len(serialize1(C[5])) == EC_SERIALIZED_2
-    return ''.join((C[0], C[1], serialize1(C[2]),serialize1(C[3]),serialize1(C[4]),serialize1(C[5])))
+    return ''.join((C[0], C[1], serialize1(C[2]).decode("ISO-8859-1"), serialize1(C[3]).decode("ISO-8859-1"),
+                    serialize1(C[4]).decode("ISO-8859-1"), serialize1(C[5]).decode("ISO-8859-1")))
 
 
 def deserializeEnc(r):
@@ -295,26 +296,28 @@ def deepDecode(m, msgTypeCounter):
     else:
         raise deepDecodeException()
 
-def initiateThresholdSig(contents):
+def initiateThresholdSig(fname):
     global PK, SKs, gg
-    # print contents
-    (l, k, sVK, sVKs, SKs, gg) = pickle.loads(contents)
+    with open(fname, "rb") as f:
+        (l, k, sVK, sVKs, SKs, gg) = pickle.load(f)
     gg = deserialize(gg)
     PK, SKs = thresprf.TPRFPublicKey(l, k, thresprf.deserialize(sVK), [thresprf.deserialize(sVKp) for sVKp in sVKs]), \
            [thresprf.TPRFPrivateKey(l, k, thresprf.deserialize(sVK), [thresprf.deserialize(sVKp) for sVKp in sVKs], \
                            thresprf.deserialize(SKp[1]), SKp[0]) for SKp in SKs]
 
-def initiateThresholdEnc(contents): 
+def initiateThresholdEnc(fname):
     global encPK, encSKs
-    (l, k, sVK, sVKs, SKs) = pickle.loads(contents)
+    with open(fname, "rb") as f:
+        (l, k, sVK, sVKs, SKs) = pickle.load(f)
     encPK, encSKs = TDHPublicKey(l, k, deserialize1(sVK), [deserialize1(sVKp) for sVKp in sVKs]), \
            [TDHPrivateKey(l, k, deserialize1(sVK), [deserialize1(sVKp) for sVKp in sVKs], \
                            deserialize0(SKp[1]), SKp[0]) for SKp in SKs]
 
-def initiateECDSAKeys(contents):
+def initiateECDSAKeys(fname):
     global ecdsa_key_list
     ecdsa_key_list = []
-    ecdsa_sec_list = pickle.loads(contents)
+    with open(fname, "rb") as f:
+        ecdsa_sec_list = pickle.load(f)
     for secret in ecdsa_sec_list:
         k = KEY()
         k.generate(secret)

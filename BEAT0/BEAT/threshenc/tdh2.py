@@ -2,6 +2,7 @@ from charm.core.engine.protocol import *
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime256v1
 from base64 import encodebytes, decodebytes
+from functools import reduce
 import random
 from Crypto.Hash import SHA256
 import time
@@ -43,28 +44,32 @@ def deserialize(g):
 
 def deserialize0(g):
     # Only work in G1 here
-    return group.deserialize('0:'+encodebytes(g))
+    return group.deserialize(b'0:'+encodebytes(g))
 
 def deserialize1(g):
     # Only work in G1 here
-    return group.deserialize('1:'+encodebytes(g))
+    return group.deserialize(b'1:'+encodebytes(g))
 
 def deserialize2(g):
     # Only work in G1 here
-    return group.deserialize('2:'+encodebytes(g))
+    return group.deserialize(b'2:'+encodebytes(g))
 
 def hashG(g): #H_1
     return SHA256.new(serialize(g)).digest()
 
 def hashH(x, L, u, w, u1, w1): #H_2
     #assert len(x) == 32
-    return group.hash(x+L+serialize(u)+serialize(w)+serialize(u1)+serialize(w1))
+    return group.hash(
+        x + L + serialize(u).decode("ISO-8859-1") + serialize(w).decode("ISO-8859-1") + serialize(u1).decode(
+            "ISO-8859-1") + serialize(w1).decode("ISO-8859-1"))
 
 def hash4(u, u1, h1): #H_4
     return group.hash(serialize(u)+serialize(u1)+serialize(h1))
 
 def xor(x,y):
     #assert len(x) == len(y) == 32
+    if isinstance(x, bytes):
+        return bytes([a^b for a,b in zip(x,y)])
     return ''.join(chr(ord(x_)^ord(y_)) for x_,y_ in zip(x,y))
 
 
@@ -101,7 +106,8 @@ class TDHPublicKey(object):
         #assert len(m) == 32
         r = group.random()
         s = group.random()
-        c  = xor(m, hashG(self.VK**r))
+        c  = xor(m.decode("ISO-8859-1") if isinstance(m, bytes) else m, 
+                 hashG(self.VK**r).decode("ISO-8859-1"))
         u = g ** r
         w = g ** s
         u1 = g1 ** r
@@ -230,8 +236,8 @@ def test():
     print ("done.")
 
 BS = 16
-pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS) 
-unpad = lambda s : s[:-ord(s[len(s)-1:])]
+pad = lambda s: s + bytes([BS - len(s) % BS]) * (BS - len(s) % BS)
+unpad = lambda s : s[:-s[-1]]
 
 def encrypt( key, raw ):
     assert len(key) == 32

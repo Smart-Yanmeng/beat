@@ -92,11 +92,11 @@ def client_test_freenet(N, t, options):
     ''' 
 
     maxdelay = 0.01
-    initiateThresholdSig(open(options.threshold_keys, 'r').read())
-    initiateECDSAKeys(open(options.ecdsa, 'r').read())
-    initiateThresholdEnc(open(options.threshold_encs, 'r').read())
+    initiateThresholdSig(options.threshold_keys)
+    initiateECDSAKeys(options.ecdsa)
+    initiateThresholdEnc(options.threshold_encs)
     initializeGIPC(getKeys()[0])
-    buffers = map(lambda _: Queue(1), range(N))
+    buffers = list(map(lambda _: Queue(1), range(N)))
     '''global logGreenlet
     logGreenlet = Greenlet(logWriter, open('msglog.TorMultiple', 'w'))
     logGreenlet.parent_args = (N, t)

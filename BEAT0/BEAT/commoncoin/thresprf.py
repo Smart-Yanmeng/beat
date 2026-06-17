@@ -1,6 +1,7 @@
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime256v1
 from base64 import encodebytes, decodebytes
+from functools import reduce
 import random
 import time
 
