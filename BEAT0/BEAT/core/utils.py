@@ -149,7 +149,7 @@ def deepEncode(mc, m):
     buf.write(struct.pack('BB', f, t))
     if bundle[0] == 'O':
         tag, id, share = bundle
-        buf.write('\x07')
+        buf.write(b'\x07')
         buf.write(struct.pack('B', id))
         buf.write(serialize(share[0]))
         buf.write(serialize(share[1]))
@@ -158,7 +158,7 @@ def deepEncode(mc, m):
         (tag, c) = bundle
         # totally we have 4 msg types
         if c[0]=='i':
-            buf.write('\x01')
+            buf.write(b'\x01')
             t2, (s, rh, mb), sig = c
             buf.write(struct.pack('<IB', len(s), len(mb)))  # here we write the # of tx instead of # of bytes
             buf.write(s)  # here we assume s is an encoded set of transaction
@@ -168,7 +168,7 @@ def deepEncode(mc, m):
             buf.write(sig)
         elif c[0]=='e':
             # print c
-            buf.write('\x02')
+            buf.write(b'\x02')
             t2, (p2, s, rh, mb), sig = c  # rh is the root hash and mb is the merkle branch
             buf.write(struct.pack('<BIB', p2, len(s), len(mb)))
             buf.write(s)  ## here we already have them encoded
@@ -177,18 +177,18 @@ def deepEncode(mc, m):
                 buf.write(br)  ## still SHA_LENGTH bytes each
             buf.write(sig)
         elif c[0]=='r':
-            buf.write('\x06')
+            buf.write(b'\x06')
             t2, p1, hm = c
             buf.write(struct.pack('B', p1))
-            buf.write(hm)
+            buf.write(hm if isinstance(hm, bytes) else hm.encode('ISO-8859-1'))
         else:
             p1, (t2, m2) = c
             if t2 == 'B':
-                buf.write('\x03')
+                buf.write(b'\x03')
             elif t2 == 'A':
-                buf.write('\x04')
+                buf.write(b'\x04')
             elif t2 == 'C':
-                buf.write('\x05')
+                buf.write(b'\x05')
                 r, (sig, proof_c, proof_z) = m2
 
                 buf.write(struct.pack('<BH', p1, r))

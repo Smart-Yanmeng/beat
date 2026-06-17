@@ -47,7 +47,8 @@ def dummyHash(x):  # TODO: replace this guy with good ones
     return x + 1
 
 def coolSHA256Hash(x):
-    if isinstance(x, int): x = str(x)
+    if isinstance(x, int): x = str(x).encode()
+    if isinstance(x, str): x = x.encode()
     return hashlib.sha256(x).digest()
 
 @greenletFunction
@@ -81,7 +82,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
         t = index + (len(mt) >> 1)
         while t > 1:
             res.append(mt[t ^ 1])  # we are picking up the sibling
-            t /= 2
+            t //= 2
         return res
 
     def merkleVerify(val, rootHash, branch, someHash, index):
@@ -106,7 +107,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
             sender, msgBundle = receive()
             if msgBundle[0] == 'i' and not signed[sender]:
 
-                if keys[sender].verify(sha1hash(''.join([msgBundle[1][0], msgBundle[1][1], ''.join(msgBundle[1][2])])), msgBundle[2]):
+                if keys[sender].verify(sha1hash(b''.join([msgBundle[1][0], msgBundle[1][1], b''.join(msgBundle[1][2])])), msgBundle[2]):
                     assert isinstance(msgBundle[1], tuple)
                     if not merkleVerify(msgBundle[1][0], msgBundle[1][1], msgBundle[1][2], coolSHA256Hash, pid):
                         continue
@@ -118,14 +119,14 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                         rootHashes[sender] = msgBundle[1][1]
                     newBundle = (sender, msgBundle[1][0], msgBundle[1][1], msgBundle[1][2])  # assert each frag has a length of step
                     broadcast(('e', newBundle, keys[pid].sign(
-                        sha1hash(''.join([str(newBundle[0]), newBundle[1], newBundle[2], ''.join(newBundle[3])]))
+                        sha1hash(b''.join([bytes([newBundle[0]]), newBundle[1], newBundle[2], b''.join(newBundle[3])]))
                     )))
                     signed[sender] = True
                 else:
                     raise ECDSASignatureError()
             elif msgBundle[0] == 'e':
 
-                if keys[sender].verify(sha1hash(''.join([str(msgBundle[1][0]), msgBundle[1][1], msgBundle[1][2], ''.join(msgBundle[1][3])])), msgBundle[2]):
+                if keys[sender].verify(sha1hash(b''.join([bytes([msgBundle[1][0]]), msgBundle[1][1], msgBundle[1][2], b''.join(msgBundle[1][3])])), msgBundle[2]):
                     originBundle = msgBundle[1]
                     if not merkleVerify(originBundle[1], originBundle[2], originBundle[3], coolSHA256Hash, sender):
                         continue
@@ -161,18 +162,18 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                     if list(opinions[msgBundle[1]].values())[0] == '':
                         reconstruction = ['']
                     else:
-                        reconstruction = zfecDecoder.decode(opinions[msgBundle[1]].values()[:Threshold],
-                                opinions[msgBundle[1]].keys()[:Threshold])  # We only take the first [Threshold] fragments
+                        reconstruction = zfecDecoder.decode(list(opinions[msgBundle[1]].values())[:Threshold],
+                                list(opinions[msgBundle[1]].keys())[:Threshold])  # We only take the first [Threshold] fragments
                         
-                    rawbuf = ''.join(reconstruction)
+                    rawbuf = b''.join(reconstruction)
                     
-                    buf = rawbuf[:-ord(rawbuf[-1])]
+                    buf = rawbuf[:-rawbuf[-1]]
                     
                     # Check root hash
                     step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
-                    assert step * Threshold - len(buf) < 256  # assumption
-                    buf_ = buf.ljust(step * Threshold - 1, '\xFF') + chr(step * Threshold - len(buf))
-                    fragList = [buf_[i*step : (i+1)*step] for i in range(Threshold)]
+                    assert int(step) * Threshold - len(buf) < 256  # assumption
+                    buf_ = buf.ljust(step * Threshold - 1, b'\xff') + bytes([int(step) * Threshold - len(buf)])
+                    fragList = [buf_[i*int(step) : (i+1)*int(step)] for i in range(Threshold)]
                     encodedFragList = zfecEncoder.encode(fragList)
                     mt = merkleTree(encodedFragList, coolSHA256Hash)
                     assert rootHashes[msgBundle[1]] == mt[1]  # full binary tree
@@ -183,9 +184,9 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
     buf = msg  # We already assumed the proposals are byte strings
 
     step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
-    assert step * Threshold - len(buf) < 256  # assumption
+    assert int(step) * Threshold - len(buf) < 256  # assumption
     buf = buf.ljust(step * Threshold - 1, b'\xff') + bytes([step * Threshold - len(buf)])
-    fragList = [buf[i*step : (i+1)*step] for i in range(Threshold)]
+    fragList = [buf[i*int(step) : (i+1)*int(step)] for i in range(Threshold)]
     encodedFragList = zfecEncoder.encode(fragList)
     mt = merkleTree(encodedFragList, coolSHA256Hash)
     rootHash = mt[1]  # full binary tree
