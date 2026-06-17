@@ -74,7 +74,7 @@ def connect_to_channel(hostname, port, party):
             try:
                 s.sendall(struct.pack('<I', len(content)) + content)
             except SocketError:
-                print '!! [to %d] sending %d bytes' % (party, len(content))
+                print('!! [to %d] sending %d bytes' % (party, len(content)))
 
     gtemp = Greenlet(_handle)
     gtemp.parent_args = (hostname, port, party)
@@ -184,7 +184,7 @@ def client_test_freenet(N, t, options):
     
     myID = IP_LIST.index(localIP)
     N = len(IP_LIST)
-    print "localIP %s, myID %s, N %s"%(localIP, myID, N)
+    print("localIP %s, myID %s, N %s"%(localIP, myID, N))
     initiateRND(options.tx)
     def makeBroadcast(i):
         chans = []
@@ -204,10 +204,10 @@ def client_test_freenet(N, t, options):
     for i in iterList:
         _, port = IP_MAPPINGS[i]
         servers.append(listen_to_channel(port))
-    print 'servers started'
+    print('servers started')
 
     gevent.sleep(WAITING_SETUP_TIME_IN_SEC) # wait for set-up to be ready
-    print 'sleep over'
+    print('sleep over')
     if True:  # We only test for once
         initBeforeBinaryConsensus()
         ts = []
@@ -256,8 +256,8 @@ def client_test_freenet(N, t, options):
             except ACSException:
                 gevent.killall(ts)
             except finishTransactionLeap:  ### Manually jump to this level
-                print 'msgCounter', msgCounter
-                print 'msgTypeCounter', msgTypeCounter
+                print('msgCounter', msgCounter)
+                print('msgTypeCounter', msgTypeCounter)
                 # message id 0 (duplicated) for signatureCost
                 logChannel.put(StopIteration)
                 mylog("=====", verboseLevel=-1)
@@ -269,14 +269,14 @@ def client_test_freenet(N, t, options):
                     gevent.sleep(1)
                 checkExceptionPerGreenlet()
             finally:
-                print "Consensus Finished"
+                print("Consensus Finished")
 
         s = sched.scheduler(time.time, time.sleep)
 
         time_now = time.time()
         delay = options.delaytime - time_now
         s.enter(delay, 1, toBeScheduled, ())
-        print myID, "waits for", time_now + delay, 'now is', time_now
+        print(myID, "waits for", time_now + delay, 'now is', time_now)
         s.run()
 
 
@@ -290,13 +290,13 @@ if USE_PROFILE:
     import GreenletProfiler
 
 def exit():
-    print "Entering atexit()"
-    print 'msgCounter', msgCounter
-    print 'msgTypeCounter', msgTypeCounter
+    print("Entering atexit()")
+    print('msgCounter', msgCounter)
+    print('msgTypeCounter', msgTypeCounter)
     nums,lens = zip(*msgTypeCounter)
-    print '    Init      Echo      Val       Aux      Coin     Ready    Share'
-    print '%8d %8d %9d %9d %9d %9d %9d' % nums[1:]
-    print '%8d %8d %9d %9d %9d %9d %9d' % lens[1:]
+    print('    Init      Echo      Val       Aux      Coin     Ready    Share')
+    print('%8d %8d %9d %9d %9d %9d %9d' % nums[1:])
+    print('%8d %8d %9d %9d %9d %9d %9d' % lens[1:])
     mylog("Total Message size %d" % totalMessageSize, verboseLevel=-2)
     if OUTPUT_HALF_MSG:
         halfmsgCounter = 0

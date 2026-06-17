@@ -1,7 +1,7 @@
 from charm.core.engine.protocol import *
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime256v1
-from base64 import encodestring, decodestring
+from base64 import encodebytes, decodebytes
 import random
 from Crypto.Hash import SHA256
 import time
@@ -30,28 +30,28 @@ ONE = group.init(ZR,1)
 
 
 def serialize(g):
-    return decodestring(group.serialize(g)[2:])
-    #return decodestring(group.serialize(g)[2:])
+    return decodebytes(group.serialize(g)[2:])
+    #return decodebytes(group.serialize(g)[2:])
 
 def serialize1(g):
     return group.serialize(g)
-    #return decodestring(group.serialize(g))
+    #return decodebytes(group.serialize(g))
 
 def deserialize(g):
     return group.deserialize(g)
-    #return group.deserialize(encodestring(g))
+    #return group.deserialize(encodebytes(g))
 
 def deserialize0(g):
     # Only work in G1 here
-    return group.deserialize('0:'+encodestring(g))
+    return group.deserialize('0:'+encodebytes(g))
 
 def deserialize1(g):
     # Only work in G1 here
-    return group.deserialize('1:'+encodestring(g))
+    return group.deserialize('1:'+encodebytes(g))
 
 def deserialize2(g):
     # Only work in G1 here
-    return group.deserialize('2:'+encodestring(g))
+    return group.deserialize('2:'+encodebytes(g))
 
 def hashG(g): #H_1
     return SHA256.new(serialize(g)).digest()
@@ -120,7 +120,7 @@ class TDHPublicKey(object):
         assert e == H
         return True
 
-    def verify_share(self, i, (u_i, e_i, f_i), (c, L, u, u1, e, f)):
+    def verify_share(self, i, u_i, e_i, f_i, c, L, u, u1, e, f):
         assert 0 <= i < self.l
         h_i = self.VKs[i]
         u1_i = (u ** f_i)/(u_i ** e_i)
@@ -130,7 +130,7 @@ class TDHPublicKey(object):
 
         return True
 
-    def combine_shares(self, (c, L, u, u1, e, f), shares):
+    def combine_shares(self, c, L, u, u1, e, f, shares):
         # sigs: a mapping from idx -> sig
         S = set(shares.keys())
         assert S.issubset(range(self.l))
@@ -138,7 +138,7 @@ class TDHPublicKey(object):
         mul = lambda a,b: a*b
         res = reduce(mul, 
                      [share[0] ** self.lagrange(S, j)
-                      for j,share in shares.iteritems()])
+                      for j,share in shares.items()])
 
         return xor(hashG(res), c)
 
@@ -150,7 +150,7 @@ class TDHPrivateKey(TDHPublicKey):
         self.i = i
         self.SK = SK
 
-    def decrypt_share(self, (c, L, u, u1, e, f)):
+    def decrypt_share(self, c, L, u, u1, e, f):
         u_i = u ** self.SK
         si = group.random()
         u1_i = u ** si
@@ -212,9 +212,9 @@ def test():
     t1 = time.time()
     assert PK.verify_ciphertext(C)
 
-    shares = [sk.decrypt_share(C) for sk in SKs]
+    shares = [sk.decrypt_share(*C) for sk in SKs]
     for i,share in enumerate(shares):
-        assert PK.verify_share(i, share, C)
+        assert PK.verify_share(i, *share, *C)
 
 
 
@@ -222,7 +222,7 @@ def test():
     for i in range(1):
         random.shuffle(SS)
         S = set(SS[:PK.k])
-        m_ = PK.combine_shares(C, dict((s,shares[s]) for s in S))
+        m_ = PK.combine_shares(*C, dict((s,shares[s]) for s in S))
         assert m_ == m
 
     t2 = time.time()

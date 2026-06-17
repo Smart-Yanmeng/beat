@@ -13,7 +13,7 @@ def get_ec2_instances(region):
         for reservation in reservations:    
             for ins in reservation.instances:
                 if ins.public_dns_name:
-                    print ins.public_dns_name.split('.')[0][4:].replace('-','.')
+                    print(ins.public_dns_name.split('.')[0][4:].replace('-','.'))
 
 def get_ec2_instances_names(region):
     ec2_conn = boto.ec2.connect_to_region(region,
@@ -23,7 +23,7 @@ def get_ec2_instances_names(region):
         reservations = ec2_conn.get_all_reservations(filters={'tag:Name':'pbft'})
         for reservation in reservations:    
             for ins in reservation.instances:
-                print ins.instance_id
+                print(ins.instance_id)
 
 def start_all_instances(region):
     ec2_conn = boto.ec2.connect_to_region(region,

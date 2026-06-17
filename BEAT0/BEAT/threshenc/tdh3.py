@@ -1,7 +1,7 @@
 from charm.core.engine.protocol import *
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime192v2
-from base64 import encodestring, decodestring
+from base64 import encodebytes, decodebytes
 import random
 from Crypto.Hash import SHA256
 import time
@@ -31,7 +31,7 @@ ONE = group.random(ZR)*0+1
 
 
 def serialize(g):
-    return decodestring(group.serialize(g)[2:])
+    return decodebytes(group.serialize(g)[2:])
 
 def hashG(g): #H_1
     return SHA256.new(serialize(g)).digest()
@@ -216,16 +216,16 @@ def test():
     t1 = time.time()
     assert PK.verify_ciphertext(C)
 
-    shares = [sk.decrypt_share(C) for sk in SKs]
+    shares = [sk.decrypt_share(*C) for sk in SKs]
     for i,share in enumerate(shares):
-        assert PK.verify_share(i, share, C)
+        assert PK.verify_share(i, *share, *C)
 
 
     SS = list(range(PK.l))
     for i in range(1):
         random.shuffle(SS)
         S = set(SS[:PK.k])
-        m_ = PK.combine_shares(C, dict((s,shares[s]) for s in S))
+        m_ = PK.combine_shares(*C, dict((s,shares[s]) for s in S))
         assert m_ == m
 
     t2 = time.time()

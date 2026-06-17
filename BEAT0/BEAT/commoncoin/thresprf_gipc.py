@@ -1,6 +1,6 @@
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime256v1
-from thresprf import dealer, serialize, serialize1, deserialize
+from .thresprf import dealer, serialize, serialize1, deserialize
 import gevent
 import gipc
 import time
@@ -52,9 +52,9 @@ def combine_and_verify(h, sigs,proof_c,proof_z,gg):
     assert len(sigs) == myPK.k
     assert len(proof_c) == myPK.k
     assert len(proof_z) == myPK.k
-    sigs = dict((s,serialize1(v)) for s,v in sigs.iteritems())
-    proof_c = dict((s,serialize1(v)) for s,v in proof_c.iteritems())
-    proof_z = dict((s,serialize1(v)) for s,v in proof_z.iteritems())
+    sigs = dict((s,serialize1(v)) for s,v in sigs.items())
+    proof_c = dict((s,serialize1(v)) for s,v in proof_c.items())
+    proof_z = dict((s,serialize1(v)) for s,v in proof_z.items())
 
     h = serialize1(h)
     gg = serialize1(gg)
@@ -77,9 +77,9 @@ def pool_test():
 
     initialize(PK)
 
-    sigs = dict(list(sigs.iteritems())[:PK.k])
-    proof_c = dict(list(proof_c.iteritems())[:PK.k])
-    proof_z = dict(list(proof_z.iteritems())[:PK.k])
+    sigs = dict(list(sigs.items())[:PK.k])
+    proof_c = dict(list(proof_c.items())[:PK.k])
+    proof_z = dict(list(proof_z.items())[:PK.k])
 
     # Combine 100 times
     if 1:
@@ -89,19 +89,19 @@ def pool_test():
         threads = []
         for i in range(100):
             threads.append(gevent.spawn(combine_and_verify, h, sigs, proof_c, proof_z,gg))
-        print 'launched', time.time()
+        print('launched', time.time())
         gevent.joinall(threads)
         #for p in promises: assert p.get() == True
-        print 'done', time.time()
+        print('done', time.time())
 
     # Combine 100 times
     if 0:
-        print 'launched', time.time()
+        print('launched', time.time())
         for i in range(10):
             _combine_and_verify(_h, sigs2)
-        print 'done', time.time()
+        print('done', time.time())
 
-    print 'work done'
+    print('work done')
 
 def main():
     pool_test()

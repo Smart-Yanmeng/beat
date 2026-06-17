@@ -2,12 +2,12 @@
 from gevent import Greenlet
 from gevent.queue import Queue
 from collections import defaultdict
-from utils import dummyCoin, greenletPacker, getKeys
+from .utils import dummyCoin, greenletPacker, getKeys
 from ..commoncoin.thresprf_gipc import serialize, serialize1, deserialize, combine_and_verify
 
 
 verbose = 0
-from utils import makeCallOnce, \
+from .utils import makeCallOnce, \
     makeBroadcastWithTag, makeBroadcastWithTagAndRound, garbageCleaner, loopWrapper
 
 

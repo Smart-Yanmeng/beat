@@ -1,6 +1,6 @@
-from thresprf import dealer, serialize, serialize1, group
+from .thresprf import dealer, serialize, serialize1, group
 import argparse
-import cPickle
+import pickle as cPickle
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     PK, SKs,gg = dealer(players=players, k=k)
     content = (PK.l, PK.k, serialize1(PK.VK), [serialize1(VKp) for VKp in PK.VKs],
                [(SK.i, serialize1(SK.SK)) for SK in SKs], serialize1(gg))
-    print cPickle.dumps(content)
+    print(cPickle.dumps(content))
 
 if __name__ == '__main__':
     main()

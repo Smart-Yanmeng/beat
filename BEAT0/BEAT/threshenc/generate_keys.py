@@ -1,6 +1,6 @@
-from tdh2 import dealer, serialize, group
+from .tdh2 import dealer, serialize, group
 import argparse
-import cPickle
+import pickle as cPickle
 
 def main():
     parser = argparse.ArgumentParser()
@@ -15,8 +15,8 @@ def main():
     PK, SKs = dealer(players=players, k=k)
     content = (PK.l, PK.k, serialize(PK.VK), [serialize(VKp) for VKp in PK.VKs],
                [(SK.i, serialize(SK.SK)) for SK in SKs])
-    print cPickle.dumps(content)
-
+    print(cPickle.dumps(content)
+)
 if __name__ == '__main__':
     main()
     

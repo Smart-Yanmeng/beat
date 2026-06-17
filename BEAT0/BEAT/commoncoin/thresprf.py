@@ -1,6 +1,6 @@
 from charm.toolbox.ecgroup import ECGroup,ZR,G
 from charm.toolbox.eccurve import prime256v1
-from base64 import encodestring, decodestring
+from base64 import encodebytes, decodebytes
 import random
 import time
 
@@ -16,7 +16,7 @@ ONE = group.init(ZR,1)
 
 def serialize(g):
     # Only work in G1 here
-    return decodestring(group.serialize(g)[2:])
+    return decodebytes(group.serialize(g)[2:])
 
 def serialize1(g):
     return group.serialize(g)
@@ -26,7 +26,7 @@ def deserialize(g):
 
 def deserialize2(g):
     # Only work in G1 here
-    return group.deserialize('2:'+encodestring(g))
+    return group.deserialize('2:'+encodebytes(g))
 
 def hashH(gg, g_i,h,g_1,g_1_b,h_1): 
     return group.hash(serialize(gg)+serialize(g_i)+serialize(h)+serialize(g_1)+serialize(g_1_b)+serialize(h_1))
@@ -49,7 +49,7 @@ class TPRFPublicKey(object):
         self.__dict__ = d
         self.VK = deserialize(self.VK)
         self.VKs = map(deserialize,self.VKs)
-        print "I'm being depickled"
+        print("I'm being depickled")
 
     def lagrange(self, S, j):
         # Assert S is a subset of range(0,self.l)
@@ -88,7 +88,7 @@ class TPRFPublicKey(object):
         mul = lambda a,b: a*b
         res = reduce(mul, 
                      [sig ** self.lagrange(S, j) 
-                      for j,sig in sigs.iteritems()])
+                      for j,sig in sigs.items()])
         return res
 
 
@@ -175,7 +175,7 @@ def test():
 
     t2 = time.time()
     print ("time: %f"%(t2-t1))
-    print "done"
+    print("done")
 
 def main():
     test()

@@ -1,13 +1,13 @@
 from gevent import monkey
 monkey.patch_all()
 
-from broadcasts import binary_consensus, initBeforeBinaryConsensus
-from utils import myRandom as random
+from .broadcasts import binary_consensus, initBeforeBinaryConsensus
+from .utils import myRandom as random
 from gevent import Greenlet
 import gevent
 from gevent.queue import Queue
 # Run the BV_broadcast protocol with no corruptions and uniform random message delays
-from utils import MonitoredInt, ACSException, greenletPacker
+from .utils import MonitoredInt, ACSException, greenletPacker
 
 lockBA = Queue(1)
 defaultBA = []
@@ -133,13 +133,13 @@ def random_delay_acs(N, t, inputs):
             gevent.joinall(ts)
             break
         except gevent.hub.LoopExit: # Manual fix for early stop
-            print "End"
+            print("End")
 
 if __name__=='__main__':
     #initTor()
-    print "[ =========== ]"
-    print "Testing binary consensus..."
-    print "Testing ACS with different inputs..."
+    print("[ =========== ]")
+    print("Testing binary consensus...")
+    print("Testing ACS with different inputs...")
     Q = [1]*(2*1+1+1)+[0]*1
     random.shuffle(Q)
     random_delay_acs(5, 1, Q)

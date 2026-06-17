@@ -53,10 +53,10 @@ def get_ec2_instances_ip(region):
                     if ins.public_dns_name: 
                         currentIP = ins.public_dns_name.split('.')[0][4:].replace('-','.')
                         result.append(currentIP)
-                        print currentIP
+                        print(currentIP)
         return result
     else:
-        print 'Region failed', region
+        print('Region failed', region)
         return None
 
 def get_ec2_instances_id(region):
@@ -68,11 +68,11 @@ def get_ec2_instances_id(region):
         reservations = ec2_conn.get_all_reservations(filters={'tag:Name': NameFilter})
         for reservation in reservations:    
             for ins in reservation.instances:
-                print ins.id
+                print(ins.id)
                 result.append(ins.id)
         return result
     else:
-        print 'Region failed', region
+        print('Region failed', region)
         return None
 
 def stop_all_instances(region):
@@ -173,11 +173,11 @@ import platform
 
 def callFabFromIPList(l, work):
     if platform.system() == 'Darwin':
-        print Popen(['fab', '-i', your_key_path,
+        print(Popen(['fab', '-i', your_key_path,
             '-u', 'ubuntu', '-H', ','.join(l), # We rule out the client
             work])
     else:
-        print 'fab -i %s -u ubuntu -P -H %s %s' % (your_key_path, ','.join(l), work)
+        print('fab -i %s -u ubuntu -P -H %s %s' % (your_key_path, ','.join(l), work))
         call('fab -i %s -u ubuntu -P -H %s %s' % (your_key_path,','.join(l), work), shell=True)
 
 def non_block_read(output):
@@ -195,13 +195,13 @@ def monitor(stdout, N, t):
     counter = 0
     while True:
         output = non_block_read(stdout).strip()
-        print output
+        print(output)
         if 'synced transactions set' in output:
             counter += 1
             if counter >= N - t:
                 break
     ending_time = time.time()
-    print 'Latency from client scope:', ending_time - starting_time
+    print('Latency from client scope:', ending_time - starting_time)
 
 def runProtocol():  # fast-path to run, assuming we already have the files ready
     callFabFromIPList(getIP(), 'runProtocol')

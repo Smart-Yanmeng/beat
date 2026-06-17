@@ -36,7 +36,7 @@ def checkLatency():
             res = run('ping -c 3 %s' % destination, stdout=waste, stderr=waste).strip().split('\n')[1].strip()
         lat = scanf.sscanf(res, '%d bytes from %s icmp_seq=%d ttl=%d time=%f ms')[-1]
         resDict.append(lat)
-    print ' '.join([env.host_string, str(sorted(resDict)[int(math.ceil(totLen * 0.75))]), str(sum(resDict) / len(resDict))])
+    print(' '.join([env.host_string, str(sorted(resDict)[int(math.ceil(totLen * 0.75))]), str(sum(resDict) / len(resDict))]))
 
 @parallel
 def ping():
@@ -160,11 +160,11 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         # self.request is the TCP socket connected to the client
         self.data = self.rfile.readline().strip()
-        print "%s finishes at %lf" % (self.client_address[0], time.time() - start_time)
-        print self.data
+        print("%s finishes at %lf" % (self.client_address[0], time.time() - start_time))
+        print(self.data)
         sync_counter += 1
         if sync_counter >= N - t:
-            print "finished at %lf" % (time.time() - start_time)
+            print("finished at %lf" % (time.time() - start_time))
 
 def runServer():   # deprecated
     global start_time, sync_counter, N, t
@@ -192,8 +192,8 @@ def runProtocol(N_, t_, B_, timespan_, tx='tx'):
     t = int(t_)
     B = int(B_) * N   # now we don't have to calculate them anymore
     timespan = int(timespan_)
-    print N, t, B, timespan
-    with shell_env(LIBRARY_PATH='/usr/local/lib', LD_LIBRARY_PATH='/usr/local/lib'):
+    print(N, t, B, timespan
+)    with shell_env(LIBRARY_PATH='/usr/local/lib', LD_LIBRARY_PATH='/usr/local/lib'):
         with cd('~/beat/BEAT0'):
             run('python -m BEAT.test.honest_party_test_EC2 -k'
             ' thsig%d_%d.keys -e ecdsa%d.keys -a %d -b %d -n %d -t %d -c thenc%d_%d.keys' % (N, t, t, timespan, B, N, t, N, t))

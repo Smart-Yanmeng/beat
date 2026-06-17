@@ -2,14 +2,14 @@ __author__ = 'aluex'
 
 from gevent import Greenlet
 from gevent.queue import Queue, Empty
-from bkr_acs import acs
-from utils import mylog, MonitoredInt, callBackWrap, greenletFunction, \
+from .bkr_acs import acs
+from .utils import mylog, MonitoredInt, callBackWrap, greenletFunction, \
     greenletPacker, getEncKeys, Transaction, getECDSAKeys, sha1hash, TR_SIZE
 from collections import defaultdict
 import zfec
 import hashlib
 from ..threshenc.tdh2 import encrypt, decrypt
-from utils import serializeEnc, deserializeEnc, ENC_SERIALIZED_LENGTH
+from .utils import serializeEnc, deserializeEnc, ENC_SERIALIZED_LENGTH
 import random
 import itertools
 import gevent
@@ -19,7 +19,7 @@ def calcSum(dd):
 
 def calcMajority(dd):
     maxvalue = -1
-    maxkey = dd.values()[0]
+    maxkey = list(dd.values())[0]
     for key, value in dd.items():
         if value > maxvalue:
             maxvalue = value
@@ -43,7 +43,7 @@ def ceil(x):
 
 def dummyHash(x):  # TODO: replace this guy with good ones
     if isinstance(x, str):
-        return int(x.encode('hex'), 16)
+        return int(x.encode().hex(), 16)
     return x + 1
 
 def coolSHA256Hash(x):
@@ -92,7 +92,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
             tmp = someHash((tindex & 1) and br + tmp or tmp + br)
             tindex >>= 1
         if tmp != rootHash:
-            print "Verification failed with", someHash(val), rootHash, branch, tmp == rootHash
+            print("Verification failed with", someHash(val), rootHash, branch, tmp == rootHash)
         return tmp == rootHash
 
     def Listener():
@@ -112,7 +112,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                         continue
                     if sender in rootHashes:
                         if rootHashes[sender]!= msgBundle[1][1]:
-                            print "Cheating caught, exiting"
+                            print("Cheating caught, exiting")
                             sys.exit(0)
                     else:
                         rootHashes[sender] = msgBundle[1][1]
@@ -131,7 +131,7 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                         continue
                     if originBundle[0] in rootHashes:
                         if rootHashes[originBundle[0]]!= originBundle[2]:
-                            print "Cheating caught, exiting"
+                            print("Cheating caught, exiting")
                             sys.exit(0)
                     else:
                         rootHashes[originBundle[0]] = originBundle[2]
@@ -154,11 +154,11 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
                     reconstDone[msgBundle[1]] = True
                     if msgBundle[1] in rootHashes:
                         if rootHashes[msgBundle[1]]!= msgBundle[2]:
-                            print "Cheating caught, exiting"
+                            print("Cheating caught, exiting")
                             sys.exit(0)
                     else:
                         rootHashes[msgBundle[1]] = msgBundle[2]
-                    if opinions[msgBundle[1]].values()[0] == '':
+                    if list(opinions[msgBundle[1]].values())[0] == '':
                         reconstruction = ['']
                     else:
                         reconstruction = zfecDecoder.decode(opinions[msgBundle[1]].values()[:Threshold],
@@ -296,9 +296,9 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
 
     def probe(i):
         if len(encCounter[i]) >= ENC_THRESHOLD and receivedProposals and not locks[i].full() and not doneCombination[i]:  # by == this part only executes once.
-            oriM = encPK.combine_shares(deserializeEnc(proposals[i][:ENC_SERIALIZED_LENGTH]),
-                                        dict(itertools.islice(encCounter[i].iteritems(), ENC_THRESHOLD))
-                                        )
+            one, two, three, four, five, six = deserializeEnc(proposals[i][:ENC_SERIALIZED_LENGTH])
+            oriM = encPK.combine_shares(one, two, three, four, five, six,
+                                        dict(itertools.islice(encCounter[i].items(), ENC_THRESHOLD)))
             doneCombination[i] = True
             locks[i].put(oriM)
 
@@ -331,12 +331,12 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
             mylog("timestampB (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
             if len(transactionCache) < B:  # Let's wait for many transactions. : )
                 time.sleep(0.5)
-                print "Not enough transactions", len(transactionCache)
+                print("Not enough transactions", len(transactionCache))
                 continue
 
             oldest_B = transactionCache[:B]
             selected_B = random.sample(oldest_B, min(B/N, len(oldest_B)))
-            print "[%d] proposing %d transactions" % (pid, min(B/N, len(oldest_B)))
+            print("[%d] proposing %d transactions" % (pid, min(B/N, len(oldest_B))))
             aesKey = random._urandom(32)  #
             label = "1"
             encrypted_B = encrypt(aesKey, ''.join(selected_B))
@@ -344,20 +344,13 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
             proposal = serializeEnc(encryptedAESKey) + encrypted_B
             mylog("timestampIB (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
 
-
-
-	    tb1 = time.time() # beginning of the protocol
+            tb1 = time.time() # beginning of the protocol
 
             commonSet, proposals = includeTransaction(pid, N, t, proposal, broadcast, includeTransactionChannel.get, send)
             mylog("timestampIE (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
             receivedProposals = True
             for i in range(N):
                 probe(i)
-            for i, c in enumerate(commonSet):  # stx is the same for every party
-                if c:
-                    share = encSKs[pid].decrypt_share(deserializeEnc(proposals[i][:ENC_SERIALIZED_LENGTH]))
-                    broadcast(('O', i, share))
-
             mylog("timestampIE2 (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
             recoveredSyncedTxList = []
             def prepareTx(i):
@@ -366,8 +359,6 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
                 assert len(encodedTxSet) % TR_SIZE == 0
                 recoveredSyncedTx = [encodedTxSet[i:i+TR_SIZE] for i in range(0, len(encodedTxSet), TR_SIZE)]
                 recoveredSyncedTxList.append(recoveredSyncedTx)
-	    
-  	    tb3 = time.time()
 
             thList = []
             for i, c in enumerate(commonSet):  # stx is the same for every party
@@ -379,11 +370,10 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
             mylog("timestampE (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
             for rtx in recoveredSyncedTxList:
                 finishedTx.update(set(rtx))
- 
+
             mylog("[%d] %d distinct tx synced and %d tx left in the pool." % (pid, len(finishedTx), len(transactionCache) - len(finishedTx)), verboseLevel=-2)
 
-	    tb2 = time.time()
-
+            tb2 = time.time()
 
             lock.get()
             finishcount += 1

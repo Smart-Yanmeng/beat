@@ -7,9 +7,9 @@ import random
 import hashlib
 import gc
 import traceback
-import cPickle as pickle
+import pickle
 import struct
-from ..ecdsa.ecdsa_ssl import KEY
+from ..ecdsa.ecdsa_pure import KEY
 import os
 from ..commoncoin import thresprf as thresprf
 from ..threshenc.tdh2 import serialize, serialize1, deserialize, deserialize0, deserialize1, deserialize2, TDHPublicKey, TDHPrivateKey, group
@@ -351,7 +351,7 @@ def mylog(*args, **kargs):
     if not 'verboseLevel' in kargs:
         kargs['verboseLevel'] = 0
     if kargs['verboseLevel'] <= verbose:
-        print " ".join([isinstance(arg, str) and arg or repr(arg) for arg in args])
+        print(" ".join([isinstance(arg, str) and arg or repr(arg) for arg in args]))
         sys.stdout.flush()
         sys.stderr.flush()
 
@@ -486,7 +486,7 @@ if __name__ == '__main__':
     a.data = 1
 
     def callback(val):
-        print "Callback called with", val
+        print("Callback called with", val)
 
     a.registerSetCallBack(callback)
     a.data = 2
