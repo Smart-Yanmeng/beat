@@ -54,7 +54,7 @@ def bv_broadcast(pid, N, t, broadcast, receive, output, release=lambda: None):
         while True:
             (sender, v) = receive()
 
-            assert v in (0, 1)
+            assert v in (0, 1), "bv_broadcast: v=%s sender=%d" % (v, sender)
             assert sender in range(N)
             received[v].add(sender)
             # Relay after reaching first threshold
@@ -63,6 +63,7 @@ def bv_broadcast(pid, N, t, broadcast, receive, output, release=lambda: None):
 
             # Output after reaching second threshold
             if len(received[v]) >= 2 * t + 1:
+                print("[DEBUG bv_broadcast] pid=%d output v=%d len=%d" % (pid, v, len(received[v])), flush=True)
                 out[v]()
                 if not v in outputed:
                     outputed.append(v)
@@ -101,8 +102,15 @@ def shared_coin(instance, pid, N, t, broadcast, receive):
             if len(received[r]) == t + 1:
                     h = PK.hash_message(str((r, instance)))
                     def tmpFunc(r, t):
-                        combine_and_verify(h, dict(tuple((t, deserialize(sig)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_c)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_z)) for t, sig, proof_c, proof_z in received[r])[:t+1]),gg)
-                        outputQueue[r].put(ord(serialize(h)[0]) & 1)  # explicitly convert to int
+                        try:
+                            combine_and_verify(h, dict(tuple((t, deserialize(sig)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_c)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_z)) for t, sig, proof_c, proof_z in received[r])[:t+1]),gg)
+                            coin_val = ord(serialize(h)[0]) & 1 if isinstance(serialize(h)[0], str) else serialize(h)[0] & 1
+                            print("[DEBUG shared_coin] instance=%d pid=%d round=%d coin=%d" % (instance, pid, r, coin_val), flush=True)
+                            outputQueue[r].put(coin_val)
+                        except Exception as e:
+                            import traceback
+                            print("[DEBUG shared_coin ERROR] instance=%d pid=%d round=%d error=%s" % (instance, pid, r, e), flush=True)
+                            traceback.print_exc()
                     Greenlet(
                         tmpFunc, r, t
                     ).start()
@@ -229,28 +237,25 @@ def binary_consensus(instance, pid, N, t, vi, decide, broadcast, receive):
     '''
 
     # Messages received are routed to either a shared coin, the broadcast, or AUX
-    coinQ = Queue(1)
-    bcQ = defaultdict(lambda: Queue(1))
-    auxQ = defaultdict(lambda: Queue(1))
+    coinQ = Queue()
+    bcQ = defaultdict(lambda: Queue())
+    auxQ = defaultdict(lambda: Queue())
 
     def _recv():
         while True:  #not finished[pid]:
             (i, (tag, m)) = receive()
+            print("[DEBUG binary_consensus._recv] pid=%d instance=%d sender=%d tag=%s" % (pid, instance, i, tag), flush=True)
             if tag == 'B':
                 # Broadcast message
                 r, msg = m
-                greenletPacker(Greenlet(bcQ[r].put, (i, msg)),
-                    'binary_consensus.bcQ[%d].put' % r, (pid, N, t, vi, decide, broadcast, receive)).start() # In case they block the router
+                bcQ[r].put((i, msg))
             elif tag == 'C':
                 # A share of a coin
-                greenletPacker(Greenlet(coinQ.put, (i, m)),
-                    'binary_consensus.coinQ.put', (pid, N, t, vi, decide, broadcast, receive)).start()
+                coinQ.put((i, m))
             elif tag == 'A':
                 # Aux message
                 r, msg = m
-                greenletPacker(Greenlet(auxQ[r].put, (i, msg)),
-                      'binary_consensus.auxQ[%d].put' % r, (pid, N, t, vi, decide, broadcast, receive)).start()
-                pass
+                auxQ[r].put((i, msg))
 
     greenletPacker(Greenlet(_recv), 'binary_consensus._recv', (pid, N, t, vi, decide, broadcast, receive)).start()
 

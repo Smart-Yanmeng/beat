@@ -97,88 +97,97 @@ def multiSigBr(pid, N, t, msg, broadcast, receive, outputs, send):
         return tmp == rootHash
 
     def Listener():
-        opinions = [defaultdict(lambda: 0) for _ in range(N)]
-        rootHashes = dict()
-        readyCounter = [defaultdict(lambda: 0) for _ in range(N)]
-        signed = [False]*N
-        readySent = [False] * N
-        reconstDone = [False] * N
-        while True:  # main loop
-            sender, msgBundle = receive()
-            if msgBundle[0] == 'i' and not signed[sender]:
+        try:
+            opinions = [defaultdict(lambda: 0) for _ in range(N)]
+            rootHashes = dict()
+            readyCounter = [defaultdict(lambda: 0) for _ in range(N)]
+            signed = [False]*N
+            readySent = [False] * N
+            reconstDone = [False] * N
+            print("[DEBUG Listener] pid=%d started, receive=%s" % (pid, type(receive)), flush=True)
+            while True:  # main loop
+                sender, msgBundle = receive()
+                print("[DEBUG Listener] pid=%d sender=%d tag=%s" % (pid, sender, msgBundle[0]), flush=True)
+                if msgBundle[0] == 'i' and not signed[sender]:
 
-                if keys[sender].verify(sha1hash(b''.join([msgBundle[1][0], msgBundle[1][1], b''.join(msgBundle[1][2])])), msgBundle[2]):
-                    assert isinstance(msgBundle[1], tuple)
-                    if not merkleVerify(msgBundle[1][0], msgBundle[1][1], msgBundle[1][2], coolSHA256Hash, pid):
-                        continue
-                    if sender in rootHashes:
-                        if rootHashes[sender]!= msgBundle[1][1]:
-                            print("Cheating caught, exiting")
-                            sys.exit(0)
+                    if keys[sender].verify(sha1hash(b''.join([msgBundle[1][0], msgBundle[1][1], b''.join(msgBundle[1][2])])), msgBundle[2]):
+                        assert isinstance(msgBundle[1], tuple)
+                        if not merkleVerify(msgBundle[1][0], msgBundle[1][1], msgBundle[1][2], coolSHA256Hash, pid):
+                            continue
+                        if sender in rootHashes:
+                            if rootHashes[sender]!= msgBundle[1][1]:
+                                print("Cheating caught, exiting")
+                                sys.exit(0)
+                        else:
+                            rootHashes[sender] = msgBundle[1][1]
+                        newBundle = (sender, msgBundle[1][0], msgBundle[1][1], msgBundle[1][2])  # assert each frag has a length of step
+                        broadcast(('e', newBundle, keys[pid].sign(
+                            sha1hash(b''.join([bytes([newBundle[0]]), newBundle[1], newBundle[2], b''.join(newBundle[3])]))
+                        )))
+                        signed[sender] = True
                     else:
-                        rootHashes[sender] = msgBundle[1][1]
-                    newBundle = (sender, msgBundle[1][0], msgBundle[1][1], msgBundle[1][2])  # assert each frag has a length of step
-                    broadcast(('e', newBundle, keys[pid].sign(
-                        sha1hash(b''.join([bytes([newBundle[0]]), newBundle[1], newBundle[2], b''.join(newBundle[3])]))
-                    )))
-                    signed[sender] = True
-                else:
-                    raise ECDSASignatureError()
-            elif msgBundle[0] == 'e':
+                        raise ECDSASignatureError()
+                elif msgBundle[0] == 'e':
 
-                if keys[sender].verify(sha1hash(b''.join([bytes([msgBundle[1][0]]), msgBundle[1][1], msgBundle[1][2], b''.join(msgBundle[1][3])])), msgBundle[2]):
-                    originBundle = msgBundle[1]
-                    if not merkleVerify(originBundle[1], originBundle[2], originBundle[3], coolSHA256Hash, sender):
-                        continue
-                    if originBundle[0] in rootHashes:
-                        if rootHashes[originBundle[0]]!= originBundle[2]:
-                            print("Cheating caught, exiting")
-                            sys.exit(0)
+                    if keys[sender].verify(sha1hash(b''.join([bytes([msgBundle[1][0]]), msgBundle[1][1], msgBundle[1][2], b''.join(msgBundle[1][3])])), msgBundle[2]):
+                        originBundle = msgBundle[1]
+                        if not merkleVerify(originBundle[1], originBundle[2], originBundle[3], coolSHA256Hash, sender):
+                            continue
+                        if originBundle[0] in rootHashes:
+                            if rootHashes[originBundle[0]]!= originBundle[2]:
+                                print("Cheating caught, exiting")
+                                sys.exit(0)
+                        else:
+                            rootHashes[originBundle[0]] = originBundle[2]
+                        opinions[originBundle[0]][sender] = originBundle[1]   # We are going to move this part to kekeketktktktk
+                        if len(opinions[originBundle[0]]) >= Threshold2 and not readySent[originBundle[0]]:
+                                readySent[originBundle[0]] = True
+                                broadcast(('r', originBundle[0], originBundle[2]))  # We are broadcasting its hash
                     else:
-                        rootHashes[originBundle[0]] = originBundle[2]
-                    opinions[originBundle[0]][sender] = originBundle[1]   # We are going to move this part to kekeketktktktk
-                    if len(opinions[originBundle[0]]) >= Threshold2 and not readySent[originBundle[0]]:
-                            readySent[originBundle[0]] = True
-                            broadcast(('r', originBundle[0], originBundle[2]))  # We are broadcasting its hash
-                else:
-                    raise ECDSASignatureError()
-            elif msgBundle[0] == 'r':
-                
-                readyCounter[msgBundle[1]][msgBundle[2]] += 1
-                tmp = readyCounter[msgBundle[1]][msgBundle[2]]
-                
-                if tmp >= t+1 and not readySent[msgBundle[1]]: # Aux message
-                    readySent[msgBundle[1]] = True
-                    broadcast(('r', msgBundle[1], msgBundle[2]))
-                if tmp >= Threshold2 and not outputs[msgBundle[1]].full() and \
-                        not reconstDone[msgBundle[1]] and len(opinions[msgBundle[1]]) >= Threshold:
-                    reconstDone[msgBundle[1]] = True
-                    if msgBundle[1] in rootHashes:
-                        if rootHashes[msgBundle[1]]!= msgBundle[2]:
-                            print("Cheating caught, exiting")
-                            sys.exit(0)
-                    else:
-                        rootHashes[msgBundle[1]] = msgBundle[2]
-                    if list(opinions[msgBundle[1]].values())[0] == '':
-                        reconstruction = ['']
-                    else:
-                        reconstruction = zfecDecoder.decode(list(opinions[msgBundle[1]].values())[:Threshold],
-                                list(opinions[msgBundle[1]].keys())[:Threshold])  # We only take the first [Threshold] fragments
+                        raise ECDSASignatureError()
+                elif msgBundle[0] == 'r':
+                    
+                    readyCounter[msgBundle[1]][msgBundle[2]] += 1
+                    tmp = readyCounter[msgBundle[1]][msgBundle[2]]
+                    
+                    if tmp >= t+1 and not readySent[msgBundle[1]]: # Aux message
+                        readySent[msgBundle[1]] = True
+                        broadcast(('r', msgBundle[1], msgBundle[2]))
+                    if tmp >= Threshold2 and not outputs[msgBundle[1]].full() and \
+                            not reconstDone[msgBundle[1]] and len(opinions[msgBundle[1]]) >= Threshold:
+                        reconstDone[msgBundle[1]] = True
+                        print("[DEBUG reconstruct] pid=%d proposal=%d opinions=%d threshold=%d" % (pid, msgBundle[1], len(opinions[msgBundle[1]]), Threshold), flush=True)
+                        if msgBundle[1] in rootHashes:
+                            if rootHashes[msgBundle[1]]!= msgBundle[2]:
+                                print("Cheating caught, exiting")
+                                sys.exit(0)
+                        else:
+                            rootHashes[msgBundle[1]] = msgBundle[2]
+                        if list(opinions[msgBundle[1]].values())[0] == '':
+                            reconstruction = ['']
+                        else:
+                            reconstruction = zfecDecoder.decode(list(opinions[msgBundle[1]].values())[:Threshold],
+                                    list(opinions[msgBundle[1]].keys())[:Threshold])  # We only take the first [Threshold] fragments
+                            
+                        rawbuf = b''.join(reconstruction)
                         
-                    rawbuf = b''.join(reconstruction)
-                    
-                    buf = rawbuf[:-rawbuf[-1]]
-                    
-                    # Check root hash
-                    step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
-                    assert int(step) * Threshold - len(buf) < 256  # assumption
-                    buf_ = buf.ljust(step * Threshold - 1, b'\xff') + bytes([int(step) * Threshold - len(buf)])
-                    fragList = [buf_[i*int(step) : (i+1)*int(step)] for i in range(Threshold)]
-                    encodedFragList = zfecEncoder.encode(fragList)
-                    mt = merkleTree(encodedFragList, coolSHA256Hash)
-                    assert rootHashes[msgBundle[1]] == mt[1]  # full binary tree
-                    if outputs[msgBundle[1]].empty():
-                        outputs[msgBundle[1]].put(buf)
+                        buf = rawbuf[:-rawbuf[-1]]
+                        
+                        # Check root hash
+                        step = len(buf) // Threshold + 1 # len(buf) % Threshold == 0 and len(buf) / Threshold or (len(buf) / Threshold + 1)
+                        assert int(step) * Threshold - len(buf) < 256  # assumption
+                        buf_ = buf.ljust(step * Threshold - 1, b'\xff') + bytes([int(step) * Threshold - len(buf)])
+                        fragList = [buf_[i*int(step) : (i+1)*int(step)] for i in range(Threshold)]
+                        encodedFragList = zfecEncoder.encode(fragList)
+                        mt = merkleTree(encodedFragList, coolSHA256Hash)
+                        assert rootHashes[msgBundle[1]] == mt[1]  # full binary tree
+                        if outputs[msgBundle[1]].empty():
+                            outputs[msgBundle[1]].put(buf)
+        except Exception as e:
+            import traceback
+            print("[DEBUG Listener] pid=%d EXCEPTION: %s" % (pid, e), flush=True)
+            traceback.print_exc()
+            raise
 
     greenletPacker(Greenlet(Listener), 'multiSigBr.Listener', (pid, N, t, msg, broadcast, receive, outputs)).start()
     buf = msg  # We already assumed the proposals are byte strings
@@ -231,13 +240,11 @@ def includeTransaction(pid, N, t, setToInclude, broadcast, receive, send):
     def _listener():
         while True:
             sender, (tag, m) = receive()
+            print("[DEBUG _listener] pid=%d sender=%d tag=%s" % (pid, sender, tag), flush=True)
             if tag == 'B':
-                greenletPacker(Greenlet(CBChannel.put, (sender, m)),
-                    'includeTransaction.CBChannel.put', (pid, N, t, setToInclude, broadcast, receive)).start()
+                CBChannel.put((sender, m))
             elif tag == 'A':
-                greenletPacker(Greenlet(ACSChannel.put,
-                    (sender, m)
-                ), 'includeTransaction.ACSChannel.put', (pid, N, t, setToInclude, broadcast, receive)).start()
+                ACSChannel.put((sender, m))
 
     outputChannel = [Queue(1) for _ in range(N)]
 
@@ -310,6 +317,7 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
                 encCounter[msgBundle[1]][sender] = msgBundle[2]
                 probe(msgBundle[1])
             else:
+                print("[DEBUG listener] pid=%d sender=%d tag=%s" % (pid, sender, msgBundle[0]), flush=True)
                 includeTransactionChannel.put((sender, msgBundle))  # redirect to includeTransaction
 
     Greenlet(listener).start()
@@ -350,6 +358,12 @@ def honestParty(pid, N, t, controlChannel, broadcast, receive, send, B = -1):
             commonSet, proposals = includeTransaction(pid, N, t, proposal, broadcast, includeTransactionChannel.get, send)
             mylog("timestampIE (%d, %lf)" % (pid, time.time()), verboseLevel=-2)
             receivedProposals = True
+            for i in range(N):
+                if commonSet[i]:
+                    c = deserializeEnc(proposals[i][:ENC_SERIALIZED_LENGTH])
+                    share = encSKs[pid].decrypt_share(c[2], c[1], c[2], c[3], c[4], c[5])
+                    for j in range(N):
+                        send(j, ('O', i, share))
             for i in range(N):
                 probe(i)
             mylog("timestampIE2 (%d, %lf)" % (pid, time.time()), verboseLevel=-2)

@@ -37,14 +37,15 @@ def _worker(PK,pipe):
 
 myPK = None
 
-def initialize(PK, size=1):
+def initialize(PK, size=0):
     global _procs, myPK
     myPK = PK
     _procs = []
-    for s in range(size):
-        (r,w) = gipc.pipe(duplex=True)
-        p = gipc.start_process(_worker, args=(PK, r,))
-        _procs.append((p,w))
+    if size > 0:
+        for s in range(size):
+            (r,w) = gipc.pipe(duplex=True)
+            p = gipc.start_process(_worker, args=(PK, r,))
+            _procs.append((p,w))
 
 def combine_and_verify(h, sigs,proof_c,proof_z,gg):
 #def combine_and_verify(h, sigs):
@@ -58,6 +59,24 @@ def combine_and_verify(h, sigs,proof_c,proof_z,gg):
 
     h = serialize1(h)
     gg = serialize1(gg)
+    
+    if len(_procs) == 0:
+        # In-process fallback when GIPC is not available
+        _sigs = {}
+        _proof_c = {}
+        _proof_z = {}
+        for s in sigs:
+            _sigs[s] = deserialize(sigs[s])
+            _proof_c[s] = deserialize(proof_c[s])
+            _proof_z[s] = deserialize(proof_z[s])
+        _h = deserialize(h)
+        _gg = deserialize(gg)
+        for s in _sigs:
+            myPK.verify_share(_gg, _sigs[s], _h, s, _proof_c[s], _proof_z[s])
+        sig = myPK.combine_shares(_sigs)
+        myPK.verify_signature(sig, _h)
+        return
+    
     # Pick a random process
     _,pipe = _procs[random.choice(range(len(_procs)))] #random.choice(_procs)
     pipe.put((h,sigs,proof_c,proof_z,gg))

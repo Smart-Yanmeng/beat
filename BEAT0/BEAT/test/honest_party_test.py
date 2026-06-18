@@ -96,7 +96,7 @@ def client_test_freenet(N, t, options):
     initiateECDSAKeys(options.ecdsa)
     initiateThresholdEnc(options.threshold_encs)
     initializeGIPC(getKeys()[0])
-    buffers = list(map(lambda _: Queue(1), range(N)))
+    buffers = list(map(lambda _: Queue(), range(N)))
     '''global logGreenlet
     logGreenlet = Greenlet(logWriter, open('msglog.TorMultiple', 'w'))
     logGreenlet.parent_args = (N, t)
