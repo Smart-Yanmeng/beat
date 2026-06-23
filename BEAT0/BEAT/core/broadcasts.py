@@ -3,6 +3,7 @@ from gevent import Greenlet
 from gevent.queue import Queue
 from collections import defaultdict
 from .utils import dummyCoin, greenletPacker, getKeys
+import hashlib
 from ..commoncoin.thresprf_gipc import serialize, serialize1, deserialize, combine_and_verify
 
 
@@ -104,7 +105,7 @@ def shared_coin(instance, pid, N, t, broadcast, receive):
                     def tmpFunc(r, t):
                         try:
                             combine_and_verify(h, dict(tuple((t, deserialize(sig)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_c)) for t, sig, proof_c, proof_z in received[r])[:t+1]), dict(tuple((t, deserialize(proof_z)) for t, sig, proof_c, proof_z in received[r])[:t+1]),gg)
-                            coin_val = ord(serialize(h)[0]) & 1 if isinstance(serialize(h)[0], str) else serialize(h)[0] & 1
+                            coin_val = hashlib.sha256(serialize(h)).digest()[0] & 1
                             print("[DEBUG shared_coin] instance=%d pid=%d round=%d coin=%d" % (instance, pid, r, coin_val), flush=True)
                             outputQueue[r].put(coin_val)
                         except Exception as e:
